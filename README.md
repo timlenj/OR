@@ -1,1 +1,1 @@
-# My independent projects and study in Operations Research
+# My independent projects in Operations Research
