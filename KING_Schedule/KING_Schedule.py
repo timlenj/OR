@@ -1,6 +1,7 @@
 from __future__ import print_function
 from ortools.sat.python import cp_model
 import pandas as pd
+import numpy as np
 
 #Trainers
 #0 = G
@@ -63,38 +64,44 @@ def main():
     for d in all_days:
         for s in all_shifts:
             model.Add(sum(shifts[(n, d, s)] for n in all_trainers) == 1)
-
     #No one works a full day
     for n in all_trainers:
         for d in all_days:
-            model.Add(sum(shifts[(n, d, s)] for s in all_shifts) <= 7)
-    #Min 2 shifts
+            model.Add(sum(shifts[(n, d, s)] for s in all_shifts) < 7)
+    #Min 2 shifts, Max 35 shifts
     for n in all_trainers:
         num_shifts_worked = sum(
             shifts[(n, d, s)] for d in all_days for s in all_shifts)
         model.Add(2 <= num_shifts_worked)
-        model.Add(num_shifts_worked <= 15)
-    
-    #Gerrick does not work Wednesday, Thursday, Friday
+        model.Add(num_shifts_worked <= 35) 
+    #Gerrick does not work Wednesday (0), Thursday (1) , Friday (2)
     model.Add(sum(shifts[(0, 2, s)] for s in all_shifts) == 0)
     model.Add(sum(shifts[(0, 3, s)] for s in all_shifts) <= 1)
     model.Add(sum(shifts[(0, 4, s)] for s in all_shifts) <= 2)
-
-    #Only Gerrick, Chris and Rob teach 5AM
+    #Only Gerrick, Chris and Rob teach 5AM (Janelle and Tiff do not teach 5 am)
     model.Add(sum(shifts[(3,d,0)] for d in all_days) == 0)
     model.Add(sum(shifts[(4,d,0)] for d in all_days) == 0)
-
-    #Tiff only works nights
+    #No one teaches more than 2 5AM classes
+    for t in all_trainers:
+        model.Add(sum(shifts[(t,d,0)] for d in all_days) <= 2)
+    #Tiff and Janelle only works nights
+    for d in all_days:
+        model.Add(sum(shifts[(3,d,s)] for s in range(5)) == 0)
     for d in all_days:
         model.Add(sum(shifts[(4,d,s)] for s in range(5)) == 0)
-
-    #But Rob only teaches up to 2
-    model.Add(sum(shifts[(1,d,0)] for d in all_days) <= 2)
     #you can't work last class and first class right after more than 1 day a week
     for n in all_trainers:
         for d in range(num_days-1):
             model.Add(shifts[(n, d, 6)] + shifts[(n,d+1,0)]<=2)
-
+    #Chris + Rob teach at least 10 classes a week
+    #for d in all_days:
+        #model.Add(sum(shifts[(1,d,s)] for s in all_shifts) >= 5)
+        #model.Add(sum(shifts[(2,d,s)] for s in range(5)) >= 10)
+    #Redundant Constraints
+    for s in all_shifts:
+        model.Add(sum(shifts[(n, d, 6)] for d in all_days for n in all_trainers) == num_days)
+    
+    
     # Creates the solver and solve.
     solver = cp_model.CpSolver()
     solver.parameters.linearization_level = 0
